@@ -17,6 +17,13 @@
 
 <br />
 
+<p align="center">
+  <img src="screenshots/Home-FoodDash.png" alt="Home Screen Dashboard" width="48%" />
+  <img src="screenshots/Cart-FoodDash.png" alt="Checkout Cart View" width="48%" />
+</p>
+
+<br />
+
 ## 🐳 DevOps & Containerization (Core Contribution)
 
 The primary focus of this project is its robust deployment architecture. Rather than relying on fragile local environments, the entire stack is heavily containerized and orchestrated using advanced **Docker Compose** patterns.
@@ -168,7 +175,7 @@ Food-Dash-Monorepo-Microservices/
 │   ├── models/Restaurant.js   # 🍃 Mongoose schema for restaurants
 │   ├── index.js               # 🚀 Express server entry point
 │   └── Dockerfile             # 📦 Node.js Alpine image
-│
+├── screenshots/               # 📷 Screenshots of the UI
 ├── menu-service/              # 🐍 Python + FastAPI (Port 3002)
 │   ├── database.py            # 🔌 PostgreSQL connection & SQLite degradation
 │   ├── models.py              # 🐘 SQLAlchemy ORM models
@@ -428,3 +435,25 @@ From the `terraform/` directory, run:
 terraform destroy -auto-approve
 ```
 *(Note: You will also need to run this inside `terraform/remote-backend/` if you wish to destroy the S3 bucket and DynamoDB locking table).*
+
+---
+
+## 🔮 Future Implementations & Roadmap
+
+While this project is fully production-ready within an EC2/Docker Compose environment, the architectural roadmap is designed for full Kubernetes scale.
+
+### Phase 1: Microservice Multi-Repo Migration
+Currently functioning as a Monorepo, the next step is to completely decouple the codebase. Each service will be moved into its own independent Git repository. This enables autonomous development teams, isolated release cycles, and independent CI/CD pipelines.
+
+### Phase 2: Advanced CI/CD & Kubernetes (EKS)
+*   **Kubernetes (Helm)**: Writing dynamic Helm charts to template deployments, services, and ingresses.
+*   **AWS EKS Deployment**: Migrating the infrastructure from a monolithic EC2 instance to a highly available Elastic Kubernetes Service (EKS) cluster.
+*   **Continuous Integration (GitHub Actions)**: Automated testing and pushing of isolated Docker images to Docker Hub upon PR merges.
+*   **Continuous Deployment (ArgoCD)**: Implementing GitOps with ArgoCD to automatically detect configuration updates and sync the EKS cluster in real-time.
+*   **Observability (Prometheus & Grafana)**: Deploying metrics exporters and setting up visual dashboards to monitor the polyglot cluster's memory, CPU usage, and endpoint health.
+
+---
+
+## 📄 License
+
+This project is open-source and licensed under the **MIT License**. Feel free to fork, learn, and utilize this architecture as a boilerplate for your own enterprise cloud deployments.
