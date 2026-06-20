@@ -1,6 +1,14 @@
 <div align="center">
   <h1>🌌 FOOD-DASH: Containerized Enterprise Architecture</h1>
   <p>A production-grade, container-first food delivery platform. This project serves as a comprehensive showcase of <b>DevOps orchestration, Docker containerization, and Polyglot Microservices</b>, demonstrating how disparate technologies and databases seamlessly integrate within a unified Docker network.</p>
+  
+  <br />
+  <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" />
+  <img src="https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white" />
+  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" />
+  <img src="https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white" />
+  <img src="https://img.shields.io/badge/Spring_Boot-F2F4F9?style=for-the-badge&logo=spring-boot" />
+  <img src="https://img.shields.io/badge/Docker-2CA5E0?style=for-the-badge&logo=docker&logoColor=white" />
 </div>
 
 <br />
@@ -58,10 +66,84 @@ The application will be instantly available at `http://localhost:5173`.
 
 The system is fully decoupled. The React frontend acts as the API orchestrator, interacting directly with the backend cluster:
 
+```mermaid
+graph TD
+    %% Frontend
+    UI["📱 Frontend (React + Vite)"]
+    
+    %% Services
+    RS["🟢 Restaurant Service<br/>(Node.js)"]
+    MS["🐍 Menu Service<br/>(FastAPI)"]
+    OS["🐹 Order Service<br/>(Go/Gin)"]
+    DS["☕ Delivery Service<br/>(Spring Boot)"]
+
+    %% Databases
+    DB_M[("🍃 MongoDB")]
+    DB_P[("🐘 PostgreSQL")]
+    DB_S[("🐬 MySQL")]
+    DB_R[("🔴 Redis")]
+
+    %% Interactions
+    UI -->|"1. Browse Restaurants"| RS
+    UI -->|"2. View Menus"| MS
+    UI -->|"3. Submit Order"| OS
+    UI -->|"5. Track Status"| DS
+
+    OS -->|"4. Async Webhook"| DS
+
+    %% DB Connections
+    RS -.-> DB_M
+    MS -.-> DB_P
+    OS -.-> DB_S
+    DS -.-> DB_R
+
+    classDef frontend fill:#9d00ff,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef node fill:#43853d,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef python fill:#3776ab,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef go fill:#00add8,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef java fill:#ed8b00,stroke:#fff,stroke-width:2px,color:#fff;
+    
+    class UI frontend;
+    class RS node;
+    class MS python;
+    class OS go;
+    class DS java;
+```
+
 1.  **Browsing**: Fetches restaurants from the Node.js/MongoDB service.
 2.  **Viewing Menus**: Queries specific menu items via the Python/PostgreSQL service.
 3.  **Checkout**: Submits the cart payload to the Go/MySQL service.
 4.  **Asynchronous Handoff**: The Go Order Service fires an internal webhook across the Docker network to the Java/Redis Delivery Service to mark the order as dispatched.
+
+---
+
+## ⚙️ Environment Configuration (.env Guide)
+
+To deploy this cluster into production, each microservice manages its own completely isolated connection state. You must configure these variables with your remote cloud connection strings before running the application without Mock Mode.
+
+### 1. Restaurant Service (`restaurant-service/.env`)
+```env
+MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/fooddash?retryWrites=true&w=majority
+PORT=3001
+```
+
+### 2. Menu Service (`menu-service/.env`)
+```env
+DATABASE_URL=postgresql://user:password@aws-rds.postgres.net:5432/fooddash
+```
+
+### 3. Order Service (`order-service/.env`)
+```env
+MYSQL_DSN="user:password@tcp(aws-rds.mysql.net:3306)/fooddash?charset=utf8mb4&parseTime=True&loc=Local"
+```
+
+### 4. Delivery Service (`delivery-service/src/main/resources/application.properties`)
+```properties
+server.port=3004
+spring.data.redis.host=redis-cloud.net
+spring.data.redis.port=6379
+spring.data.redis.password=your_redis_password
+```
 
 ---
 
