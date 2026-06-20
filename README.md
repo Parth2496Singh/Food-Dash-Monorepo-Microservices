@@ -252,6 +252,61 @@ When running the Docker Compose stack, all client API requests are securely rout
 
 ---
 
+## 📝 API Contracts & Data Payloads
+
+Because this is a decoupled polyglot architecture, there are no shared type libraries across services. Any future microservice replacements (or database migrations) must strictly adhere to the following JSON API contracts to ensure frontend compatibility.
+
+### 1. Restaurant Object
+**Source:** `GET /api/restaurants`
+```json
+{
+  "id": "rest-1",
+  "name": "Pizza Paradise",
+  "cuisine": "Italian",
+  "rating": 4.8,
+  "address": "123 Main St",
+  "image": "https://example.com/pizza.jpg"
+}
+```
+
+### 2. Menu Item Object
+**Source:** `GET /api/menu?restaurantId={id}`
+```json
+{
+  "id": "menu-1",
+  "restaurantId": "rest-1",
+  "name": "Margherita Pizza",
+  "description": "Classic cheese and tomato",
+  "price": 14.99,
+  "category": "Pizza"
+}
+```
+
+### 3. Order Checkout Payload
+**Target:** `POST /api/orders`
+```json
+{
+  "restaurantId": "rest-1",
+  "customerName": "John Doe",
+  "totalAmount": 29.98,
+  "items": "[{\"id\":\"menu-1\",\"quantity\":2}]" 
+}
+```
+*(Note: `items` is stringified JSON to accommodate SQL databases without native JSON column support).*
+
+### 4. Delivery Status Object
+**Source:** `GET /api/delivery/:orderId`
+```json
+{
+  "orderId": "ord-7f8a9b",
+  "status": "Order Dispatched to Courier",
+  "driverName": "Alice",
+  "message": "Your driver is on the way!"
+}
+```
+
+---
+
 ## 🏗️ Infrastructure as Code (Terraform)
 
 This project utilizes **Terraform** to automate the provisioning of the AWS cloud infrastructure. Rather than manually clicking through the AWS Console, the entire environment (EC2 instances, security groups, and networking) is defined in code. 
