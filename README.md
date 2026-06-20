@@ -1,164 +1,119 @@
 <div align="center">
-  <h1>🌌 FOOD-DASH: Enterprise Edition</h1>
-  <p>A production-grade, high-end food delivery application built on a <b>Polyglot Microservices Architecture</b>. This project showcases how different enterprise technologies and distinct databases can integrate harmoniously behind a visually stunning React frontend featuring a <i>Nebula Purple & Golden Spark</i> glassmorphism aesthetic.</p>
+  <h1>🌌 FOOD-DASH: Containerized Enterprise Architecture</h1>
+  <p>A production-grade, container-first food delivery platform. This project serves as a comprehensive showcase of <b>DevOps orchestration, Docker containerization, and Polyglot Microservices</b>, demonstrating how disparate technologies and databases seamlessly integrate within a unified Docker network.</p>
 </div>
 
 <br />
 
-## 🚀 Tech Stack & Databases
+## 🐳 DevOps & Containerization (Core Contribution)
 
-### 🎨 Frontend
-*   **Framework**: React + Vite (TypeScript)
-*   **Styling**: Tailwind CSS (Custom Glassmorphism + Dark/Light Theme Toggle)
-*   **Animations**: Framer Motion
-*   **Icons**: Lucide React
+The primary focus of this project is its robust deployment architecture. Rather than relying on fragile local environments, the entire stack is heavily containerized and orchestrated using advanced **Docker Compose** patterns.
+
+*   **Custom Bridge Networks**: Secure internal DNS resolution (e.g., `http://delivery-service:3004`) ensuring microservices communicate securely without exposing internal traffic to the host machine.
+*   **Intelligent Healthchecks**: Strict dependency trees implemented in `docker-compose.yml`. For example, the Go Order Service will not attempt to fire webhooks until the Java Delivery Service's JVM has fully booted and returned a healthy ping.
+*   **Multi-Stage Dockerfiles**: Optimized, production-ready image builds specifically tailored for 5 completely different ecosystems (Node.js, Python, Go, Java, and NGINX).
+*   **Environment Injection**: Secure credential injection enabling zero-downtime database swapping across environments.
+
+---
+
+## 🚀 Tech Stack & Infrastructure
+
+### ⚙️ Orchestration
+*   **Docker & Docker Compose** (Primary Infrastructure)
+*   **NGINX** (Frontend Reverse Proxy)
 
 ### 🧠 Backend Microservices
-*   🟢 **Restaurant Service**: Node.js + Express | **Database**: MongoDB (Mongoose)
-*   🐍 **Menu Service**: Python + FastAPI | **Database**: PostgreSQL (SQLAlchemy)
-*   🐹 **Order Service**: Go + Gin | **Database**: MySQL (GORM)
-*   ☕ **Delivery Service**: Java + Spring Boot | **Database**: Redis (Spring Data Redis)
+*   🟢 **Restaurant Service**: Node.js + Express | **Database**: MongoDB 
+*   🐍 **Menu Service**: Python + FastAPI | **Database**: PostgreSQL 
+*   🐹 **Order Service**: Go + Gin | **Database**: MySQL 
+*   ☕ **Delivery Service**: Java + Spring Boot | **Database**: Redis 
+
+### 🎨 Frontend UI
+*   React + Vite, styled with Tailwind CSS (Glassmorphism) & Framer Motion.
 
 ---
 
-## 🏗️ Architecture & Workflow
+## ⚡ One-Click Deployment
 
-The system is fully decoupled into 5 isolated layers. The frontend acts as an API orchestrator.
-
-1.  **Browsing**: Fetches restaurants from the Node.js/MongoDB service.
-2.  **Viewing Menus**: Queries specific menu items via the Python/PostgreSQL service.
-3.  **Local Cart**: Managed instantly via React Context API.
-4.  **Checkout**: Submits the cart payload to the Go/MySQL service. The Order Service persists the payload to MySQL.
-5.  **Handoff & Tracking**: The Go Order Service asynchronously fires a webhook to the Java/Redis Delivery Service to mark the order as dispatched. The Frontend fetches this confirmation instantly with a success animation.
-
----
-
-## ⚙️ Environment Configuration (.env Guide)
-
-Each microservice manages its own completely isolated connection state. You **must** configure these variables with remote cloud connection strings before running the application.
-
-### 1. Restaurant Service (`restaurant-service/.env`)
-```env
-MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/fooddash?retryWrites=true&w=majority
-PORT=3001
-```
-
-### 2. Menu Service (`menu-service/.env`)
-```env
-DATABASE_URL=postgresql://user:password@aws-rds.postgres.net:5432/fooddash
-```
-
-### 3. Order Service (`order-service/.env`)
-```env
-MYSQL_DSN="user:password@tcp(aws-rds.mysql.net:3306)/fooddash?charset=utf8mb4&parseTime=True&loc=Local"
-```
-
-### 4. Delivery Service (`delivery-service/src/main/resources/application.properties`)
-```properties
-server.port=3004
-spring.data.redis.host=redis-cloud.net
-spring.data.redis.port=6379
-spring.data.redis.password=your_redis_password
-```
-
----
-
-## 🛡️ Graceful Degradation (Local Mock Mode)
-
-Don't have enterprise databases set up locally? **No problem.** 
-
-This project is engineered to work straight out of the box. If a microservice fails to connect to its respective database (or detects a placeholder connection string in your `.env`), it will intelligently intercept the fatal crash, log a warning to the console, and gracefully degrade to using **Local Mock Mode**:
-
-*   🟢 **Node.js**: Falls back from MongoDB to an internal JavaScript array.
-*   🐍 **Python**: Swaps out AWS PostgreSQL for a local auto-seeded `sqlite3` database file.
-*   🐹 **Go**: Aborts GORM MySQL connections and handles orders via an in-memory Map.
-*   ☕ **Java**: Bypasses strict Redis auto-configuration and tracks active deliveries using a high-performance `ConcurrentHashMap`.
-
-You can follow the standard setup guide below without changing a single line of code!
-
----
-
-## 🐳 Docker Deployment (Recommended)
-
-The absolute fastest way to boot the entire Polyglot architecture is using Docker Compose. The provided `docker-compose.yml` handles network creation, port binding, and intelligent health checks (ensuring services like Java boot fully before Go attempts to fire webhooks).
+The absolute fastest way to boot the entire Polyglot architecture is using Docker Compose. The `docker-compose.yml` handles all networking, volumes, and builds automatically.
 
 ```bash
 # Build and boot all 5 services simultaneously
 docker compose up --build -d
 
-# View live logs for all services
+# View live orchestration logs
 docker compose logs -f
+
+# Spin down the cluster
+docker compose down
 ```
 
-The application will be instantly available at `http://localhost:5173`. 
-*(Note: The Docker environment variables are intentionally populated with placeholder credentials to automatically trigger the Graceful Degradation logic, meaning it will run perfectly out of the box without any external database dependencies).*
+The application will be instantly available at `http://localhost:5173`.
+
+*(Note: The Docker environment variables are intentionally populated with placeholder credentials to automatically trigger the Graceful Degradation logic, meaning it will run perfectly out of the box without requiring you to manually spin up 4 different database servers).*
 
 ---
 
-## 🛠️ Step-by-Step Local Installation (Manual)
+## 🏗️ Architectural Workflow
 
-### Prerequisites
-*   **Node.js** (v16+) & npm
-*   **Python** (v3.9+) & pip
-*   **Go** (v1.20+)
-*   **Java** (v17+)
+The system is fully decoupled. The React frontend acts as the API orchestrator, interacting directly with the backend cluster:
 
-### 1. Restaurant Service Setup (Node.js)
+1.  **Browsing**: Fetches restaurants from the Node.js/MongoDB service.
+2.  **Viewing Menus**: Queries specific menu items via the Python/PostgreSQL service.
+3.  **Checkout**: Submits the cart payload to the Go/MySQL service.
+4.  **Asynchronous Handoff**: The Go Order Service fires an internal webhook across the Docker network to the Java/Redis Delivery Service to mark the order as dispatched.
+
+---
+
+## 🛡️ Graceful Degradation (Local Mock Mode)
+
+Designed for CI/CD testing and rapid local deployments, this project features built-in fallback mechanics. If a microservice fails to connect to its remote database (or detects the default mock credentials injected by Docker Compose), it intelligently intercepts the fatal crash and gracefully degrades:
+
+*   🟢 **Node.js**: Falls back to an internal JavaScript array.
+*   🐍 **Python**: Swaps AWS PostgreSQL for an auto-seeded local `sqlite3` database.
+*   🐹 **Go**: Aborts GORM MySQL connections and handles orders via an in-memory Map.
+*   ☕ **Java**: Bypasses strict Redis auto-configuration for a high-performance `ConcurrentHashMap`.
+
+---
+
+<details>
+<summary><b>🛠️ Step-by-Step Local Development (Manual / Non-Docker)</b></summary>
+<br/>
+
+*(If you wish to bypass Docker and run the raw source code locally for development)*
+
+### 1. Restaurant Service (Node.js)
 ```bash
-cd restaurant-service
-npm install
-# Ensure your .env is configured
-npm start
+cd restaurant-service && npm install && npm start
 ```
-*Runs on `http://localhost:3001`*
 
-### 2. Menu Service Setup (Python)
-It is highly recommended to use a virtual environment (`venv`).
+### 2. Menu Service (Python)
 ```bash
 cd menu-service
-# Create and activate virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows use: venv\Scripts\activate
-
-# Install dependencies
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-
-# Ensure your .env is configured
 uvicorn main:app --reload --port 3002
 ```
-*Runs on `http://localhost:3002`*
 
-### 3. Order Service Setup (Go)
+### 3. Order Service (Go)
 ```bash
-cd order-service
-# Pull down all go module dependencies
-go mod tidy
-
-# Ensure your .env is configured
-go run main.go
+cd order-service && go mod tidy && go run main.go
 ```
-*Runs on `http://localhost:3003`*
 
-### 4. Delivery Service Setup (Java)
-Ensure you have Maven installed globally (`mvn -version`).
+### 4. Delivery Service (Java)
 ```bash
-cd delivery-service
-# Ensure application.properties is configured with Redis details
-mvn spring-boot:run
+cd delivery-service && mvn spring-boot:run
 ```
-*Runs on `http://localhost:3004`*
 
-### 5. Frontend UI Setup (React)
+### 5. Frontend UI (React)
 ```bash
-cd frontend
-npm install
-npm run dev
+cd frontend && npm install && npm run dev
 ```
-*Runs on `http://localhost:5173`*
+</details>
 
 ---
 
-## 📡 API Endpoints Guide
+## 📡 Microservice API Endpoints
 
 ### 🏪 Restaurant Service (Port 3001)
 | Method | Endpoint | Description |
@@ -171,7 +126,6 @@ npm run dev
 | :--- | :--- | :--- |
 | `GET` | `/api/menu` | Retrieves all menu items. |
 | `GET` | `/api/menu?restaurantId={id}`| Retrieves menu items for a specific restaurant. |
-| `GET` | `/api/menu/:id` | Retrieves details of a specific menu item. |
 
 ### 🛒 Order Service (Port 3003)
 | Method | Endpoint | Description |
