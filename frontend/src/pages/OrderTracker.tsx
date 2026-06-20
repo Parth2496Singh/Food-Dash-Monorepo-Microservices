@@ -19,7 +19,7 @@ const OrderTracker = () => {
 
   useEffect(() => {
     // Fetch once instead of polling, as handoff is instant now
-    axios.get(`http://localhost:3004/api/delivery/${id}`)
+    axios.get(`/api/delivery/${id}`)
       .then(res => setStatus(res.data))
       .catch(err => console.error(err));
   }, [id]);

@@ -112,7 +112,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      # Maps local port 5173 to NGINX's unprivileged port 8080 inside the container
+
       - "80:8080"
     restart: unless-stopped
     networks:

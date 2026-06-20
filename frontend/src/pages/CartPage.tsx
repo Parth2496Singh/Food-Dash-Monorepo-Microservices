@@ -28,7 +28,7 @@ const CartPage = () => {
         }))
       };
       
-      const response = await axios.post('http://localhost:3003/api/orders', payload);
+      const response = await axios.post('/api/orders', payload);
       clearCart();
       navigate(`/order/${response.data.id}`);
     } catch (err) {

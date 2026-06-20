@@ -11,5 +11,6 @@ FROM nginxinc/nginx-unprivileged:alpine
 # Copy the statically generated Vite assets to NGINX's serving directory
 COPY --from=builder /app/dist /usr/share/nginx/html
 # NGINX unprivileged images default to port 8080
-EXPOSE 80
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]

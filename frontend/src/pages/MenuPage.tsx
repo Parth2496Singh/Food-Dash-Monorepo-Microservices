@@ -28,8 +28,8 @@ const MenuPage = () => {
     const fetchData = async () => {
       try {
         const [menuRes, restRes] = await Promise.all([
-          axios.get(`http://localhost:3002/api/menu?restaurantId=${id}`),
-          axios.get(`http://localhost:3001/api/restaurants/${id}`)
+          axios.get(`/api/menu?restaurantId=${id}`),
+          axios.get(`/api/restaurants/${id}`)
         ]);
         setMenu(menuRes.data);
         setRestaurant(restRes.data);

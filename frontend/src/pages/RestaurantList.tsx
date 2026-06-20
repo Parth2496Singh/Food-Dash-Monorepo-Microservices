@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'; // Removed 'React'
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Star, MapPin, Clock } from 'lucide-react'; // Removed 'Filter'
+import { Star, MapPin, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
@@ -22,7 +22,7 @@ const RestaurantList = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    axios.get('http://localhost:3001/api/restaurants')
+    axios.get('/api/restaurants')
       .then(res => setRestaurants(res.data))
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
