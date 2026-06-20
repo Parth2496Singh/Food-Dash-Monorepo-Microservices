@@ -144,6 +144,58 @@ graph TD
 
 ---
 
+## 📁 Project Structure
+
+This monorepo is meticulously organized to keep all microservices entirely isolated, ensuring a clean, production-ready environment.
+
+```text
+Food-Dash-Monorepo-Microservices/
+├── docker-compose.yaml        # 🐳 Master orchestrator for the polyglot cluster
+├── .gitignore                 # 🚫 Git ignore rules
+├── README.md                  # 📖 Project documentation
+│
+├── frontend/                  # 🎨 React + Vite UI (API Orchestrator)
+│   ├── nginx.conf             # 🚦 API Gateway & Reverse Proxy configuration
+│   ├── src/
+│   │   ├── components/        # 🧩 Reusable UI components (Glassmorphism)
+│   │   ├── context/           # 🌐 Global React Context (Cart & Theme)
+│   │   └── pages/             # 📄 Route views (Landing, Menu, Checkout, Tracker)
+│   ├── Dockerfile             # 📦 Multi-stage build (Node build -> NGINX serve)
+│   └── package.json           # 📦 Frontend dependencies
+│
+├── restaurant-service/        # 🟢 Node.js + Express (Port 3001)
+│   ├── config/db.js           # 🔌 MongoDB connection & Mock Fallback logic
+│   ├── models/Restaurant.js   # 🍃 Mongoose schema for restaurants
+│   ├── index.js               # 🚀 Express server entry point
+│   └── Dockerfile             # 📦 Node.js Alpine image
+│
+├── menu-service/              # 🐍 Python + FastAPI (Port 3002)
+│   ├── database.py            # 🔌 PostgreSQL connection & SQLite degradation
+│   ├── models.py              # 🐘 SQLAlchemy ORM models
+│   ├── main.py                # ⚡ FastAPI application & endpoints
+│   └── Dockerfile             # 📦 Python Slim image
+│
+├── order-service/             # 🐹 Go + Gin (Port 3003)
+│   ├── main.go                # 🚀 Gin server, GORM logic, & Webhook dispatcher
+│   ├── go.mod                 # 📦 Go module dependencies
+│   └── Dockerfile             # 📦 Multi-stage build (Compiles to Scratch)
+│
+├── delivery-service/          # ☕ Java + Spring Boot (Port 3004)
+│   ├── src/main/java/.../     # 📦 Spring Boot application source code
+│   │   ├── DeliveryController.java  # 🚦 REST endpoints & Webhook receiver
+│   │   └── DeliveryApplication.java # 🚀 Spring Boot entry point
+│   ├── pom.xml                # 🐘 Maven dependencies
+│   └── Dockerfile             # 📦 Multi-stage build (Maven build -> JRE serve)
+│
+└── terraform/                 # 🏗️ AWS Infrastructure as Code
+    ├── ec2-infra/             # 💻 EC2 instance & Security Group definitions
+    │   └── User_data-ec2.sh   # 📜 Bash script to auto-install Docker & deploy
+    ├── remote-backend/        # 🪣 S3 + DynamoDB state locking infrastructure
+    └── main.tf                # 🚀 Master Terraform entry point
+```
+
+---
+
 ## ⚙️ Environment Configuration (.env Guide)
 
 To deploy this cluster into production, each microservice manages its own completely isolated connection state. You must configure these variables with your remote cloud connection strings before running the application without Mock Mode.
