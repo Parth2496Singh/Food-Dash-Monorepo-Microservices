@@ -113,7 +113,7 @@ services:
       dockerfile: Dockerfile
     ports:
       # Maps local port 5173 to NGINX's unprivileged port 8080 inside the container
-      - "5173:8080"
+      - "5173:80"
     restart: unless-stopped
     networks:
       - fooddash-net
