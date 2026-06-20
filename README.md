@@ -464,7 +464,13 @@ While this project is fully production-ready within an EC2/Docker Compose enviro
 ### Phase 1: Microservice Multi-Repo Migration
 Currently functioning as a Monorepo, the next step is to completely decouple the codebase. Each service will be moved into its own independent Git repository. This enables autonomous development teams, isolated release cycles, and independent CI/CD pipelines.
 
-### Phase 2: Advanced CI/CD & Kubernetes (EKS)
+### Phase 2: Managed Cloud Databases
+Transitioning away from the local "Graceful Degradation" mock mechanisms by provisioning highly-available, managed cloud databases for each microservice:
+*   **MongoDB Atlas**: Distributed NoSQL hosting for the Node.js Restaurant Service.
+*   **AWS RDS (PostgreSQL / MySQL)**: Fully managed relational storage for the Python Menu Service and Go Order Service.
+*   **AWS ElastiCache (Redis)**: High-throughput memory caching for the Java Delivery Service.
+
+### Phase 3: Advanced CI/CD & Kubernetes (EKS)
 *   **Kubernetes (Helm)**: Writing dynamic Helm charts to template deployments, services, and ingresses.
 *   **AWS EKS Deployment**: Migrating the infrastructure from a monolithic EC2 instance to a highly available Elastic Kubernetes Service (EKS) cluster.
 *   **Continuous Integration (GitHub Actions)**: Automated testing and pushing of isolated Docker images to Docker Hub upon PR merges.
