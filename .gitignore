@@ -1,0 +1,20 @@
+# Node & Frontend
+node_modules/
+dist/
+.env
+
+# Python
+__pycache__/
+venv/
+*.pyc
+mock_database.db
+
+# Go
+order-service/order-service
+
+# Java
+target/
+*.jar
+
+# OS Files
+.DS_Store

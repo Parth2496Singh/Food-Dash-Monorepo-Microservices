@@ -1,0 +1,131 @@
+name: food-dash-enterprise
+
+# ==========================================
+# 🌐 CUSTOM NETWORK
+# ==========================================
+
+networks:
+  fooddash-net:
+    driver: bridge
+
+services:
+  # ==========================================
+  # ☕ 1. DELIVERY SERVICE (Java / Spring Boot)
+  # ==========================================
+  delivery-service:
+    build: 
+      context: ./delivery-service
+      dockerfile: Dockerfile
+    ports:
+      - "3004:3004"
+    restart: unless-stopped
+    networks:
+      - fooddash-net
+    environment:
+      - SERVER_PORT=3004
+      # 🛡️ MOCK MODE TRIGGERS: Spring Boot auto-translates these to application.properties.
+      # Placeholder values will trigger your ConcurrentHashMap fallback.
+      - SPRING_DATA_REDIS_HOST=mock-redis.net
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_DATA_REDIS_PASSWORD=mock_password
+    # Java takes the longest to boot. We use a healthcheck to prevent dependent 
+    # services from failing before the JVM is ready.
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3004/api/delivery/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s # Grace period for JVM initialization
+
+  # ==========================================
+  # 🐍 2. MENU SERVICE (Python / FastAPI)
+  # ==========================================
+  menu-service:
+    build: 
+      context: ./menu-service
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3002"
+    restart: unless-stopped
+    networks:
+      - fooddash-net
+    environment:
+      # 🛡️ MOCK MODE TRIGGER: Forces fallback to local SQLite3
+      - DATABASE_URL=postgresql://mock:mock@mock:5432/mock
+    healthcheck:
+      # Use Python's built-in urllib instead of wget!
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3002/api/menu')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # ==========================================
+  # 🟢 3. RESTAURANT SERVICE (Node.js / Express)
+  # ==========================================
+  restaurant-service:
+    build: 
+      context: ./restaurant-service
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+    networks:
+      - fooddash-net
+    environment:
+      - PORT=3001
+      # 🛡️ MOCK MODE TRIGGER: Forces fallback to internal JS arrays
+      - MONGO_URI=mongodb+srv://mock-user:mock-password@cluster/mock
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/restaurants"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # ==========================================
+  # 🐹 4. ORDER SERVICE (Go / Gin)
+  # ==========================================
+  order-service:
+    build: 
+      context: ./order-service
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
+    restart: unless-stopped
+    networks:
+      - fooddash-net
+    environment:
+      # 🛡️ MOCK MODE TRIGGER: Forces fallback to in-memory Map
+      - MYSQL_DSN=mock:mock@tcp(mock:3306)/mock
+    depends_on:
+      # The Order Service fires a webhook to the Delivery Service. 
+      # Therefore, it MUST wait until Java is strictly healthy, not just started.
+      delivery-service:
+        condition: service_healthy
+
+  # ==========================================
+  # 🎨 5. FRONTEND (React / Vite / NGINX)
+  # ==========================================
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      # Maps local port 5173 to NGINX's unprivileged port 8080 inside the container
+      - "5173:8080"
+    restart: unless-stopped
+    networks:
+      - fooddash-net
+    depends_on:
+      # The UI acts as the orchestrator. It shouldn't load until the 
+      # underlying data APIs are actually healthy and returning data.
+      restaurant-service:
+        condition: service_healthy
+      menu-service:
+        condition: service_healthy
+      # Go compiles to a 'scratch' (empty) image, meaning it doesn't have tools 
+      # like `wget` for a standard healthcheck. However, Go boots in milliseconds, 
+      # so `service_started` is perfectly safe here.
+      order-service:
+        condition: service_started
