@@ -19,9 +19,13 @@ target/
 # OS Files
 .DS_Store
 
-# Terraform
+# Terraform state files (NEVER commit)
 *.tfstate
 *.tfstate.*
-.terraform/
-terraform/
 crash.log
+
+# Terraform internal cache only
+**/.terraform/*
+
+# Optional: local sensitive files
+*.tfvars
