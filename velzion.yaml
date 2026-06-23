@@ -1,0 +1,6 @@
+version: 2.0
+# 🚀 Enterprise Mode (BYOC)
+# Velzion will automatically detect 'docker-compose.yml' in your repository root.
+# If your production file has a custom name or folder, replace 'true' with the path.
+# Example: byoc_mode: ./docker-compose.yaml
+byoc_mode: ./docker-compose.yaml
