@@ -32,7 +32,7 @@ jobs:
         run: docker build -t food-dash/frontend:ci ./frontend
 
       - name: Start container
-        run: docker run --rm -d --name test-frontend food-dash/frontend:ci
+        run: docker run -d --name test-frontend food-dash/frontend:ci
 
       - name: Wait for container to run
         run: sleep 120
@@ -58,7 +58,7 @@ jobs:
 
       - name: Start menu-service smoke-test container
         run: |
-          docker run --rm -d --name test-menu-service \
+          docker run -d --name test-menu-service \
             -e DATABASE_URL=postgresql://mock:mock@mock:5432/mock \
             food-dash/menu-service:ci
 
@@ -86,7 +86,7 @@ jobs:
         run: docker build -t food-dash/order-service:ci ./order-service
 
       - name: Start order-service container
-        run: docker run --rm -d --name test-order-service -e 'MYSQL_DSN=mock:mock@tcp(mock:3306)/mock' food-dash/order-service:ci
+        run: docker run -d --name test-order-service -e 'MYSQL_DSN=mock:mock@tcp(mock:3306)/mock' food-dash/order-service:ci
 
       - name: Wait for container to run
         run: sleep 120
@@ -111,7 +111,7 @@ jobs:
         run: docker build -t food-dash/delivery-service:ci ./delivery-service
 
       - name: Start container
-        run: docker run --rm -d --name test-delivery-service -e SERVER_PORT=3004 food-dash/delivery-service:ci
+        run: docker run -d --name test-delivery-service -e SERVER_PORT=3004 food-dash/delivery-service:ci
 
       - name: Wait for container to run
         run: sleep 120
@@ -137,7 +137,7 @@ jobs:
 
       - name: Start restaurant-service smoke-test container
         run: |
-          docker run --rm -d --name test-restaurant-service \
+          docker run -d --name test-restaurant-service \
             -e MONGO_URI=mongodb+srv://mock-user:mock-password@cluster/mock \
             food-dash/restaurant-service:ci
 

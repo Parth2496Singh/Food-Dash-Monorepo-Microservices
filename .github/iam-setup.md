@@ -146,3 +146,72 @@ aws iam simulate-principal-policy \
 - The `food-dash-ci-ecr-user` credentials grant access **only** to ECR repositories under the `food-dash/*` namespace. A compromised key cannot be used to modify IAM, access S3, or affect any other AWS resource.
 - Rotate the access key pair periodically. When rotating: create a new key, update the GitHub Secrets, verify the pipeline runs successfully, then delete the old key.
 - If a key is suspected compromised, deactivate it immediately in **IAM → Users → food-dash-ci-ecr-user → Security credentials**, update the GitHub Secrets with a new key pair, and audit CloudTrail for unexpected `ecr:*` calls.
+
+---
+
+## Step 7: Elastic Container Registry (ECR) Setup
+
+Since the Food-Dash application is a polyglot microservices monorepo, it produces 5 completely different Docker images. ECR requires a separate repository for each distinct image.
+
+You must manually create the following 5 repositories in the AWS ECR Console:
+1.  `food-dash/frontend`
+2.  `food-dash/restaurant-service`
+3.  `food-dash/menu-service`
+4.  `food-dash/order-service`
+5.  `food-dash/delivery-service`
+
+*(Note: These exact names are hardcoded into the GitHub Actions `.github/workflows/ci.yml` file and the IAM policy above).*
+
+---
+
+## Step 8: How the CI/CD Pipeline Works
+
+The automated pipeline is driven by the `.github/workflows/ci.yml` file. It uses a **Release-Based Deployment Strategy**, meaning it only runs when a Semantic Version tag is pushed to GitHub.
+
+### Triggering the Pipeline
+To trigger a deployment, run the following commands in your terminal:
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+### 1. Parallel Smoke Testing
+Once triggered, GitHub Actions spins up multiple isolated Ubuntu runners to simultaneously test all 5 microservices. For each service, it:
+*   **Builds** the Docker image locally (e.g., `food-dash/frontend:ci`).
+*   **Boots** the container with mock database credentials.
+*   **Waits** 120 seconds to monitor container stability.
+*   **Validates** that the container did not crash (checks for Exit Code `0`, `130`, or `143`).
+
+### 2. Automated Tagging & Pushing
+If the smoke test passes, the pipeline prepares the image for AWS ECR:
+*   **Authentication:** The runner securely logs into your AWS ECR vault using the GitHub Secrets.
+*   **Semantic Version Tagging:** The image is tagged with the exact release number (e.g., `1.0.0`).
+*   **Latest Tagging:** The image is also tagged as `latest` to ensure rolling deployments always pull the newest code.
+*   **Push:** Both tags are pushed to the specific ECR repository.
+
+---
+
+## Step 9: Manual Tagging and Pushing (Alternative)
+
+If you ever need to manually build, tag, and push an image from your local terminal (bypassing GitHub Actions), here is the exact sequence of commands required:
+
+```bash
+# 1. Authenticate your local Docker CLI with AWS ECR
+aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <account-id>.dkr.ecr.<region>.amazonaws.com
+
+# 2. Build the Docker Image (Example: Frontend)
+docker build -t food-dash/frontend:ci ./frontend
+
+# 3. Tag the image with the specific SemVer version
+docker tag food-dash/frontend:ci <account-id>.dkr.ecr.<region>.amazonaws.com/food-dash/frontend:1.0.0
+
+# 4. Tag the image as 'latest'
+docker tag food-dash/frontend:ci <account-id>.dkr.ecr.<region>.amazonaws.com/food-dash/frontend:latest
+
+# 5. Push the specific version
+docker push <account-id>.dkr.ecr.<region>.amazonaws.com/food-dash/frontend:1.0.0
+
+# 6. Push the latest tag
+docker push <account-id>.dkr.ecr.<region>.amazonaws.com/food-dash/frontend:latest
+```
+*(Repeat steps 2-6 for `restaurant-service`, `menu-service`, `order-service`, and `delivery-service`).*
