@@ -18,22 +18,3 @@ target/
 
 # OS Files
 .DS_Store
-
-# Terraform state files (NEVER commit)
-*.tfstate
-*.tfstate.*
-crash.log
-
-# Terraform internal cache only
-**/.terraform/*
-
-# Optional: local sensitive files
-*.tfvars
-
-# Security, SSH, and Cloud Keys
-*.pem
-*.pub
-id_rsa*
-id_ed25519*
-terraform-ec2-key*
-.aws/

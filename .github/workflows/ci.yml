@@ -1,0 +1,380 @@
+name: CI Pipeline
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  resolve-version:
+    runs-on: ubuntu-latest
+    outputs:
+      semver: ${{ steps.set-version.outputs.semver }}
+    steps:
+      - name: Resolve SemVer from tag
+        id: set-version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ -z "$VERSION" ] || ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Malformed tag: $GITHUB_REF_NAME"
+            exit 1
+          fi
+          echo "semver=$VERSION" >> $GITHUB_OUTPUT
+
+  build-test-frontend:
+    needs: resolve-version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t food-dash/frontend:ci ./frontend
+
+      - name: Start container
+        run: docker run --rm -d --name test-frontend food-dash/frontend:ci
+
+      - name: Wait for container to run
+        run: sleep 120
+
+      - name: Check container exit code
+        run: |
+          EXIT_CODE=$(docker wait test-frontend)
+          docker stop test-frontend || true
+          if [ "$EXIT_CODE" != "0" ] && [ "$EXIT_CODE" != "130" ] && [ "$EXIT_CODE" != "143" ]; then
+            echo "::error::Container exited with unexpected code: $EXIT_CODE"
+            exit 1
+          fi
+
+  build-test-menu-service:
+    needs: resolve-version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build menu-service Docker image
+        run: docker build -t food-dash/menu-service:ci ./menu-service
+
+      - name: Start menu-service smoke-test container
+        run: |
+          docker run --rm -d --name test-menu-service \
+            -e DATABASE_URL=postgresql://mock:mock@mock:5432/mock \
+            food-dash/menu-service:ci
+
+      - name: Wait for smoke test
+        run: sleep 120
+
+      - name: Check container exit code
+        run: |
+          EXIT_CODE=$(docker wait test-menu-service)
+          docker stop test-menu-service || true
+          echo "Container exited with code: $EXIT_CODE"
+          if [ "$EXIT_CODE" != "0" ] && [ "$EXIT_CODE" != "130" ] && [ "$EXIT_CODE" != "143" ]; then
+            echo "::error::Unexpected exit code $EXIT_CODE (expected 0, 130, or 143)"
+            exit 1
+          fi
+
+  build-test-order-service:
+    needs: resolve-version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build order-service image
+        run: docker build -t food-dash/order-service:ci ./order-service
+
+      - name: Start order-service container
+        run: docker run --rm -d --name test-order-service -e 'MYSQL_DSN=mock:mock@tcp(mock:3306)/mock' food-dash/order-service:ci
+
+      - name: Wait for container to run
+        run: sleep 120
+
+      - name: Check container exit code
+        run: |
+          EXIT_CODE=$(docker wait test-order-service)
+          docker stop test-order-service || true
+          if [ "$EXIT_CODE" != "0" ] && [ "$EXIT_CODE" != "130" ] && [ "$EXIT_CODE" != "143" ]; then
+            echo "::error::order-service container exited with unexpected code: $EXIT_CODE"
+            exit 1
+          fi
+
+  build-test-delivery-service:
+    needs: resolve-version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t food-dash/delivery-service:ci ./delivery-service
+
+      - name: Start container
+        run: docker run --rm -d --name test-delivery-service -e SERVER_PORT=3004 food-dash/delivery-service:ci
+
+      - name: Wait for container to run
+        run: sleep 120
+
+      - name: Check container exit code
+        run: |
+          EXIT_CODE=$(docker wait test-delivery-service)
+          docker stop test-delivery-service || true
+          if [ "$EXIT_CODE" != "0" ] && [ "$EXIT_CODE" != "130" ] && [ "$EXIT_CODE" != "143" ]; then
+            echo "::error::Container exited with unexpected code: $EXIT_CODE"
+            exit 1
+          fi
+
+  build-test-restaurant-service:
+    needs: resolve-version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build restaurant-service Docker image
+        run: docker build -t food-dash/restaurant-service:ci ./restaurant-service
+
+      - name: Start restaurant-service smoke-test container
+        run: |
+          docker run --rm -d --name test-restaurant-service \
+            -e MONGO_URI=mongodb+srv://mock-user:mock-password@cluster/mock \
+            food-dash/restaurant-service:ci
+
+      - name: Wait for smoke test
+        run: sleep 120
+
+      - name: Check container exit code
+        run: |
+          EXIT_CODE=$(docker wait test-restaurant-service)
+          docker stop test-restaurant-service || true
+          echo "Container exited with code: $EXIT_CODE"
+          if [ "$EXIT_CODE" != "0" ] && [ "$EXIT_CODE" != "130" ] && [ "$EXIT_CODE" != "143" ]; then
+            echo "::error::Unexpected exit code $EXIT_CODE (expected 0, 130, or 143)"
+            exit 1
+          fi
+
+  push-frontend:
+    needs: [build-test-frontend, resolve-version]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate secrets
+        run: |
+          MISSING=""
+          [ -z "$AWS_ACCESS_KEY_ID" ]     && MISSING="$MISSING AWS_ACCESS_KEY_ID"
+          [ -z "$AWS_SECRET_ACCESS_KEY" ] && MISSING="$MISSING AWS_SECRET_ACCESS_KEY"
+          [ -z "$AWS_REGION" ]            && MISSING="$MISSING AWS_REGION"
+          [ -z "$AWS_ECR_REGISTRY" ]      && MISSING="$MISSING AWS_ECR_REGISTRY"
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing required secrets:$MISSING"
+            exit 1
+          fi
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_ECR_REGISTRY: ${{ secrets.AWS_ECR_REGISTRY }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Re-build Docker image
+        run: docker build -t food-dash/frontend:ci ./frontend
+
+      - name: Authenticate to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+
+      - name: Tag SemVer
+        run: docker tag food-dash/frontend:ci ${{ secrets.AWS_ECR_REGISTRY }}/food-dash/frontend:${{ needs.resolve-version.outputs.semver }}
+
+      - name: Tag latest
+        run: docker tag food-dash/frontend:ci ${{ secrets.AWS_ECR_REGISTRY }}/food-dash/frontend:latest
+
+      - name: Push both tags
+        run: |
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}/food-dash/frontend:${{ needs.resolve-version.outputs.semver }}
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}/food-dash/frontend:latest
+
+  push-menu-service:
+    needs: [build-test-menu-service, resolve-version]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate secrets
+        run: |
+          MISSING=""
+          [ -z "$AWS_ACCESS_KEY_ID" ]     && MISSING="$MISSING AWS_ACCESS_KEY_ID"
+          [ -z "$AWS_SECRET_ACCESS_KEY" ] && MISSING="$MISSING AWS_SECRET_ACCESS_KEY"
+          [ -z "$AWS_REGION" ]            && MISSING="$MISSING AWS_REGION"
+          [ -z "$AWS_ECR_REGISTRY" ]      && MISSING="$MISSING AWS_ECR_REGISTRY"
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing required secrets:$MISSING"
+            exit 1
+          fi
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_ECR_REGISTRY: ${{ secrets.AWS_ECR_REGISTRY }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Re-build Docker image
+        run: docker build -t food-dash/menu-service:ci ./menu-service
+
+      - name: Authenticate to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+
+      - name: Tag SemVer
+        run: docker tag food-dash/menu-service:ci ${{ secrets.AWS_ECR_REGISTRY }}/food-dash/menu-service:${{ needs.resolve-version.outputs.semver }}
+
+      - name: Tag latest
+        run: docker tag food-dash/menu-service:ci ${{ secrets.AWS_ECR_REGISTRY }}/food-dash/menu-service:latest
+
+      - name: Push both tags
+        run: |
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}/food-dash/menu-service:${{ needs.resolve-version.outputs.semver }}
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}/food-dash/menu-service:latest
+
+  push-order-service:
+    needs: [build-test-order-service, resolve-version]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate secrets
+        run: |
+          MISSING=""
+          [ -z "$AWS_ACCESS_KEY_ID" ]     && MISSING="$MISSING AWS_ACCESS_KEY_ID"
+          [ -z "$AWS_SECRET_ACCESS_KEY" ] && MISSING="$MISSING AWS_SECRET_ACCESS_KEY"
+          [ -z "$AWS_REGION" ]            && MISSING="$MISSING AWS_REGION"
+          [ -z "$AWS_ECR_REGISTRY" ]      && MISSING="$MISSING AWS_ECR_REGISTRY"
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing required secrets:$MISSING"
+            exit 1
+          fi
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_ECR_REGISTRY: ${{ secrets.AWS_ECR_REGISTRY }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Re-build Docker image
+        run: docker build -t food-dash/order-service:ci ./order-service
+
+      - name: Authenticate to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+
+      - name: Tag SemVer
+        run: docker tag food-dash/order-service:ci ${{ secrets.AWS_ECR_REGISTRY }}/food-dash/order-service:${{ needs.resolve-version.outputs.semver }}
+
+      - name: Tag latest
+        run: docker tag food-dash/order-service:ci ${{ secrets.AWS_ECR_REGISTRY }}/food-dash/order-service:latest
+
+      - name: Push both tags
+        run: |
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}/food-dash/order-service:${{ needs.resolve-version.outputs.semver }}
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}/food-dash/order-service:latest
+
+  push-delivery-service:
+    needs: [build-test-delivery-service, resolve-version]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate secrets
+        run: |
+          MISSING=""
+          [ -z "$AWS_ACCESS_KEY_ID" ]     && MISSING="$MISSING AWS_ACCESS_KEY_ID"
+          [ -z "$AWS_SECRET_ACCESS_KEY" ] && MISSING="$MISSING AWS_SECRET_ACCESS_KEY"
+          [ -z "$AWS_REGION" ]            && MISSING="$MISSING AWS_REGION"
+          [ -z "$AWS_ECR_REGISTRY" ]      && MISSING="$MISSING AWS_ECR_REGISTRY"
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing required secrets:$MISSING"
+            exit 1
+          fi
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_ECR_REGISTRY: ${{ secrets.AWS_ECR_REGISTRY }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Re-build Docker image
+        run: docker build -t food-dash/delivery-service:ci ./delivery-service
+
+      - name: Authenticate to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+
+      - name: Tag SemVer
+        run: docker tag food-dash/delivery-service:ci ${{ secrets.AWS_ECR_REGISTRY }}/food-dash/delivery-service:${{ needs.resolve-version.outputs.semver }}
+
+      - name: Tag latest
+        run: docker tag food-dash/delivery-service:ci ${{ secrets.AWS_ECR_REGISTRY }}/food-dash/delivery-service:latest
+
+      - name: Push both tags
+        run: |
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}/food-dash/delivery-service:${{ needs.resolve-version.outputs.semver }}
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}/food-dash/delivery-service:latest
+
+  push-restaurant-service:
+    needs: [build-test-restaurant-service, resolve-version]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate secrets
+        run: |
+          MISSING=""
+          [ -z "$AWS_ACCESS_KEY_ID" ]     && MISSING="$MISSING AWS_ACCESS_KEY_ID"
+          [ -z "$AWS_SECRET_ACCESS_KEY" ] && MISSING="$MISSING AWS_SECRET_ACCESS_KEY"
+          [ -z "$AWS_REGION" ]            && MISSING="$MISSING AWS_REGION"
+          [ -z "$AWS_ECR_REGISTRY" ]      && MISSING="$MISSING AWS_ECR_REGISTRY"
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing required secrets:$MISSING"
+            exit 1
+          fi
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_ECR_REGISTRY: ${{ secrets.AWS_ECR_REGISTRY }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Re-build Docker image
+        run: docker build -t food-dash/restaurant-service:ci ./restaurant-service
+
+      - name: Authenticate to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+
+      - name: Tag SemVer
+        run: docker tag food-dash/restaurant-service:ci ${{ secrets.AWS_ECR_REGISTRY }}/food-dash/restaurant-service:${{ needs.resolve-version.outputs.semver }}
+
+      - name: Tag latest
+        run: docker tag food-dash/restaurant-service:ci ${{ secrets.AWS_ECR_REGISTRY }}/food-dash/restaurant-service:latest
+
+      - name: Push both tags
+        run: |
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}/food-dash/restaurant-service:${{ needs.resolve-version.outputs.semver }}
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}/food-dash/restaurant-service:latest
